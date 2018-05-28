@@ -18,31 +18,51 @@ class Scrapper {
         return Promise.resolve()
             .then(this.mergeLikedPosts.bind(this))
             .then(this.prepareImages.bind(this))
+            .then(this.saveImages.bind(this))
             .then(this.saveInJson.bind(this))
-            // .then(this.saveImages.bind(this))
             .then(this.finish)
     }
 
-    saveImages(imageArray) {
-        return Promise.reduce(imageArray, (accum, image, index) => {
-            const percentage = ((index / imageArray.length) * 100).toFixed(1);
-            return new Promise((resolve) => {
+    /** SYNC method, which takes too much time */
+    saveImages2(imageArray) {
+        return Promise
+            .reduce(imageArray, (accum, image, index) => {
+                const percentage = ((index / imageArray.length) * 100).toFixed(1);
+                return new Promise(
+                    (resolve) => {
 
-                console.log(`Processing... ${image.name.replace(ops.dirName + '/', '')} -- ${percentage} %`);
-                return this.saveImage(image.url, image.name, () => {
-                    return resolve(image);
-                });
+                        console.log(`Processing... ${image.name.replace(ops.dirName + '/', '')} -- ${percentage} %`);
+
+                        return this.saveImage(image.url, image.name, () => resolve(image));
+                    })
+                    .then((img) => {
+                        accum.push(img);
+                        return accum;
+                    });
+            }, [])
+            .then((result) => result);
+    }
+
+    saveImages(imageArray) {
+        let index = 0;
+        console.log('Starting download...');
+
+        return Promise
+            .map(imageArray, (image) => {
+                return new Promise((resolve) =>
+                    this.saveImage(image.url, image.name, () => resolve(image)))
+                    .then((img) => {
+                        const percentage = ((index / imageArray.length) * 100).toFixed(1);
+                        index--;
+                        console.log(`Processing... ${image.name.replace(ops.dirName + '/', '')} -- ${percentage} %`);
+                        return img;
+                    });
             })
-                .then((img) => {
-                    accum.push(img);
-                    return accum;
-                });
-        }, [])
             .then((result) => result);
     }
 
     saveImage(uri, photoName, callback) {
-        return request.head(uri, (err, res, body) => {
+        return request.head(uri, () => {
             return request(uri).pipe(fs.createWriteStream(photoName)).on('close', callback);
         });
     }
@@ -118,13 +138,13 @@ class Scrapper {
             if (err) {
                 console.log('Err while writing file: ', err);
             }
-            console.log('JSON saved');
+            console.log('JSON saved.');
         });
     }
 
 
     finish() {
-        console.log(`Task finished.`);
+        console.log(`Download finished.`);
     }
 
 }
@@ -136,3 +156,12 @@ const data = require('./data/saved_data');
 const scrapper = new Scrapper(ops.dirName, data);
 
 scrapper.makeMagic();
+
+/**
+ *                  Thoughts
+
+ 1. run node server on ec2 with api that can trigger action
+ 2. before saving data, check by id if it exists in 'saved.json'
+ 3. replace json with db
+
+ * */
