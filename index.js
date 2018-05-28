@@ -31,7 +31,7 @@ class Scrapper {
                 return new Promise(
                     (resolve) => {
 
-                        console.log(`Processing... ${image.name.replace(ops.dirName + '/', '')} -- ${percentage} %`);
+                        console.log(`Processing... ${image.name.replace(ops.likedDir + '/', '')} -- ${percentage} %`);
 
                         return this.saveImage(image.url, image.name, () => resolve(image));
                     })
@@ -54,7 +54,7 @@ class Scrapper {
                     .then((img) => {
                         const percentage = ((index / imageArray.length) * 100).toFixed(1);
                         index--;
-                        console.log(`Processing... ${image.name.replace(ops.dirName + '/', '')} -- ${percentage} %`);
+                        console.log(`Processing... ${image.name.replace(ops.likedDir + '/', '')} -- ${percentage} %`);
                         return img;
                     });
             })
@@ -69,7 +69,15 @@ class Scrapper {
 
     mergeLikedPosts() {
         console.log('Preparing posts...');
-        const wholeArray = this.data.liked.newValue.items.concat(this.data.liked.oldValue.items);
+
+        let wholeArray = [];
+
+        if (this.data.items) {
+            wholeArray = this.data.items;
+        } else {
+            wholeArray = this.data.liked.newValue.items.concat(this.data.liked.oldValue.items);
+        }
+
         const allData = _.uniqBy(wholeArray, 'code');
         console.log('Posts prepared, total: ', allData.length, ' items');
         return allData;
@@ -78,7 +86,7 @@ class Scrapper {
     getPhotoName(image) {
         let fullName = image.caption ? image.caption.user.full_name : image.user.full_name;
         fullName = fullName.replace('/', '');
-        return `${ops.dirName}/${fullName}_${this.randomString()}.jpeg`;
+        return `${ops.likedDir}/${fullName}_${this.randomString()}.jpeg`;
     }
 
     randomString() {
@@ -132,7 +140,7 @@ class Scrapper {
     }
 
     saveInJson(data) {
-        const path = ops.dirName + '/saved.json';
+        const path = ops.likedDir + '/saved.json';
         const json = JSON.stringify(data);
         fs.writeFile(path, json, (err) => {
             if (err) {
@@ -150,12 +158,15 @@ class Scrapper {
 }
 
 const ops = {
-    dirName: './temp/LikedPhotos'
+    likedDir: './temp/LikedPhotos',
+    savedDir: './temp/SavedPhotos'
 };
-const data = require('./data/saved_data');
-const scrapper = new Scrapper(ops.dirName, data);
+const likedPhotos = require('./data/liked');
+const likedScrapper = new Scrapper(ops.likedDir, likedPhotos);
+const savedPhotos = require('./data/saved');
+const savedScrapper = new Scrapper(ops.savedDir, savedPhotos);
 
-scrapper.makeMagic();
+savedScrapper.makeMagic();
 
 /**
  *                  Thoughts
